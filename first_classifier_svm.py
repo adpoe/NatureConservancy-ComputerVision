@@ -2,6 +2,39 @@
 # It is defined by the kaggle/python docker image: https://github.com/kaggle/docker-python
 # For example, here's several helpful packages to load in
 
+
+# during training, double check where which class ALB is using... odd that it's out of order..
+
+# Want to try:
+# Data Preprocessing
+# preprocessing.RobustScaler([with_centering, ...])	Scale features using statistics that are robust to outliers
+
+# also need to try:
+# x Sklearn NN
+# --> done sklearn.neural_network.MLPClassifier
+# http://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html#sklearn.neural_network.MLPClassifier
+
+# Feature Selection
+# http://scikit-learn.org/stable/modules/classes.html#module-sklearn.feature_selection
+
+# Feature Extraction
+# http://scikit-learn.org/stable/modules/classes.html#module-sklearn.feature_selection
+
+# Cross Validate the Training set
+# need source for this in sklearn
+
+# Keras Neural Net
+
+# CNN from somewhere... not sure where though
+
+# Lasagne Neural Net
+
+###########################################
+# Conclusion:
+# Do keras from scratch, separately....
+# Best opetion here is SVM
+###########################################
+
 import sys
 import csv
 import os
@@ -16,6 +49,8 @@ from matplotlib import pyplot as plt
 from sklearn import svm
 from sklearn import linear_model
 from sklearn.externals import joblib  # to save the SVM model so don't need to re-train every time
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import neural_network
 
 
 def main():
@@ -83,6 +118,8 @@ def main():
         directory_path = key[2]
         file_list = file_paths[key]
 
+        # shuffle this list, so we get random examples
+        np.random.shuffle(file_list)
         # Stop early, while testing, so it doesn't take FOR-EV-ER (FOR-EV-ER)
         i = 0
 
@@ -90,6 +127,7 @@ def main():
         for fname in file_list:
             fpath = directory_path + fname
             print(fpath)
+            print("Category = " + str(category))
             # extract features!
             gray = cv2.imread(fpath,0)
             gray = cv2.resize(gray, (1200, 750))  # resize so we're always comparing same-sized images
@@ -123,36 +161,73 @@ def main():
 
             # early stop
             i += 1
-            if i > 2:
+            if i > 30:
                 break
 
     # Alright! Now we've got features extracted and labels
-    clf = svm.SVC(kernel='linear', C = 1.0)
+
     #X = np.array(training_data)
     #y = np.array(training_labels).astype(float)
     X = training_data
     y = training_labels
     y = y.reshape(y.shape[0],)
-    clf.fit(X,y)
+
+    # SVC
+    #clf = svm.SVC(kernel='linear', C = 1.0, probability=True)
+    #clf.fit(X,y)
+
+    # random forest
+    #forest = RandomForestClassifier(n_estimators=10)
+    #forest = forest.fit(X, y)
 
     # logistic regression
-    logreg = linear_model.LogisticRegression(C=1e5)
-    logreg.fit(X, y)
+    #logreg = linear_model.LogisticRegression(C=1e5)
+    #logreg.fit(X, y)
+
+    # sklearn neural net
+    #sknet = neural_network.MLPClassifier()
+    #sknet = neural_network.MLPClassifier(hidden_layer_sizes=(100, ), activation='relu', solver='adam', alpha=0.0001, batch_size='auto', learning_rate='constant', learning_rate_init=0.001, power_t=0.5, max_iter=200, shuffle=True, random_state=None, tol=0.0001, verbose=False, warm_start=False, momentum=0.9, nesterovs_momentum=True, early_stopping=False, validation_fraction=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+    #sknet.fit(X,y)  # seems to always give same result, no matter what... no solution for this yet...
+
+    ########## Keras neural net #############
+    # from the basic tutorial at the keras website: https://keras.io/
+    """
+    model = Sequential()
+    model.add(Dense(output_dim=64, input_dim=128000))
+    model.add(Activation("relu"))
+    model.add(Dense(output_dim=10))
+    model.add(Activation("softmax"))
+    model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer=SGD(lr=0.01, momentum=0.9, nesterov=True))
+    model.fit(X, y, nb_epoch=5, batch_size=32)
+    # can evaluate performance in one line, but first need to pull out a test set for cross-validation
+    # loss_and_metrics = model.evaluate(X_test, Y_test, batch_size=32)
+    # --> pass vector into this: proba = model.predict_proba(X_test, batch_size=32)
+    """
+    #########################################
     # Now, extract one of the images and predict it
     gray = cv2.imread('test_stg1/img_00071.jpg', 0)  # Correct is LAG --> Class 3
     kp1, des1 = detector.detectAndCompute(gray, None)
 
     des1 = des1[0:1000, :]   # trim vector so all are same size
     vector_data = des1.reshape(1, 128000)
+
     print("Linear SVM Prediction:")
     print(clf.predict(vector_data))
+    """
     print("Logistic Regression Prediction:")
     print(logreg.predict(vector_data))
+    print("Random Forest Prediction:")
+    print(forest.predict(vector_data))
     print("Logistic Regression Probability:")   # << What they are looking for...
     print(logreg.predict_proba(vector_data))
+    print("SKLearn Neural Net")
+    print(sknet.predict(vector_data))
+    print(sknet.predict_proba(vector_data))
+    """
 
     # save SVM model
-    joblib.dump(clf, 'filename.pkl')
+    # joblib.dump(clf, 'filename.pkl')
     # to load SVM model, use:  clf = joblib.load('filename.pkl')
 
     # try a few more, see what kind of accuracy we get
@@ -187,16 +262,31 @@ def main():
         vector_data = des1.reshape(1, 128000)
         print("Linear SVM Prediction:")
         print(clf.predict(vector_data))
+        svm_prediction = clf.predict_proba(vector_data)
+        """
+        print(svm_prediction)
+        print("Random Forest Prediction:")
+        print(forest.predict(vector_data))
+        forest_prediction = forest.predict_proba(vector_data)
+        print(forest_prediction)
         print("Logistic Regression Prediction:")
         print(logreg.predict(vector_data))
         print("Logistic Regression Probability:")   # << What they are looking for...
         logistic_prediction = logreg.predict_proba(vector_data)
         print(logistic_prediction)
+        print("SKLearn Neural Net")
+        print(sknet.predict(vector_data))
+        sknet_prediction = sknet.predict_proba(vector_data)
+        print(sknet_prediction)
+        """
 
         # format list for csv output
         csv_output_list = []
         csv_output_list.append(f)
-        for elem in logistic_prediction:
+        #for elem in logistic_prediction:  # Middle
+        for elem in svm_prediction:        # Best so far
+        #for elem in forest_prediction:    # Worst
+        #for elem in sknet_prediction:
             for value in elem:
                 csv_output_list.append(value)
 
@@ -210,7 +300,7 @@ def main():
 
 
         # Uncomment to stop early
-        #if i > 10:
+        #if i > 50:
         #    break
         #i += 1
 
